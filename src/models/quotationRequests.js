@@ -7,16 +7,14 @@ const itemSchema = new mongoose.Schema(
       ref:"Materials",
       required:true
     },
-    description: { type: String, required: true },
     quantity: { type: Number, required: true },
-    unit: { type: String, required: true },
     specifications: { type: String },
-    deliveryLocation: { type: String, required: true },
+    deliveryLocation: { type: String,  },
  },
   { _id: false },
 );
 
-const rfqSchema = new mongoose.Schema(
+const quotationRequestsSchema = new mongoose.Schema(
   {
     date: { type: Date, default: Date.now },
     dueDate: { type: Date, required: true },
@@ -24,17 +22,17 @@ const rfqSchema = new mongoose.Schema(
     items: [itemSchema],
 
     currency: { type: String, default: "USD" },
-    validityDays: { type: Number, default: 30 },
+    // validityDays: { type: Number, default: 30 },
     notes: { type: String },
     status: {
       type: String,
-      enum: ["pending", "sent", "received", "closed"],
-      default: "pending",
+      enum: ["active", "closed"],
+      default: "active",
     },
 
     submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Users" },
-    supplier: {
-      type: mongoose.Schema.Types.ObjectId,
+    suppliers: {
+      type: [mongoose.Schema.Types.ObjectId],
       required:true,
       ref:"Users"
     }
@@ -42,4 +40,4 @@ const rfqSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model("RFQs", rfqSchema);
+module.exports = mongoose.model("QuotationRequests", quotationRequestsSchema);

@@ -1,6 +1,11 @@
 
 const Notification = require("../models/notification");
 
+
+async function createNotification(heading,userId,description){
+  await Notification.create({heading,for:userId,description});
+}
+
 async function getUserNotifications(req, res, next) {
   try {
     const userId = req.userId;
@@ -13,4 +18,5 @@ async function getUserNotifications(req, res, next) {
 
 module.exports = {
   getUserNotifications,
+  createNotification
 };

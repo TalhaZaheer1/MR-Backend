@@ -5,7 +5,9 @@ const { createNotification } = require("../utils/notify.js");
 
 const getAllMaterialsRequests = async (req, res, next) => {
   try {
-    const requests = await Request.find({}).populate("requesterId");
+    const requests = await Request.find({})
+      .populate("requesterId")
+      .sort({ requestDate: -1 });
     res.json({ requests });
   } catch (error) {
     next(error);
@@ -15,9 +17,9 @@ const getAllMaterialsRequests = async (req, res, next) => {
 const getUserMaterialRequests = async (req, res, next) => {
   const userId = req.userId;
   try {
-    const requests = await Request.find({ requesterId: userId }).populate(
-      "requesterId",
-    );
+    const requests = await Request.find({ requesterId: userId })
+      .populate("requesterId")
+      .sort({ requestDate: -1 });
     res.json({ requests });
   } catch (error) {
     next(error);
@@ -35,6 +37,7 @@ async function repairMaterialRequest(req, res, next) {
     if (typeof quantity === "number") updatePayload.quantity = quantity;
     if (purpose) updatePayload.purpose = purpose;
     updatePayload.status = "pending approval";
+    updatePayload.requestDate = Date.now();
     const updatedRequest = await Request.findByIdAndUpdate(
       requestId,
       updatePayload,
@@ -45,33 +48,39 @@ async function repairMaterialRequest(req, res, next) {
       return res.status(404).json({ error: "Material request not found" });
     }
 
+    await createNotification(
+      "Material Request Repaired",
+      updatedRequest.actionTakerId,
+      `Material Request rejected by you is now repaired.\nRequest ID:${updatedRequest._id.toString()}`,
+    );
+
     res.json({ message: "Request updated successfully", data: updatedRequest });
   } catch (error) {
     next(error);
   }
 }
 
-const bulkCreateMaterialRequests = async (req, res,next) => {
+const bulkCreateMaterialRequests = async (req, res, next) => {
   const requests = req.body.requests; // an array of request objects
 
   try {
     // Step 1: Extract all unique maximo_ids from the request payload
     const maximoIds = [...new Set(requests.map((r) => r.materialMaximoId))];
-    console.log({maximoIds})
+    console.log({ maximoIds });
     // Step 2: Find existing maximo_ids in Material collection
     const existingMaterials = await Material.find({
       maximoId: { $in: maximoIds },
     }).select("maximoId");
     const existingMaximoIds = existingMaterials.map((m) => m.maximoId);
-    console.log({existingMaximoIds})
+    console.log({ existingMaximoIds });
     // Step 3: Filter out invalid ones
     const invalidRequests = requests.filter(
       (r) => !existingMaximoIds.includes(r.materialMaximoId.toString()),
     );
 
     if (invalidRequests.length > 0) {
-      console.log({invalidRequests});
-      throw new Error("Some referenced maximoId values are invalid.")
+      console.log({ invalidRequests });
+      throw new Error("Some referenced maximoId values are invalid.");
       // return res.status(400).json({
       //   error: "Some referenced maximoId values are invalid.",
       //   invalidEntries: invalidRequests,
@@ -94,10 +103,12 @@ async function changeStatusRejected(req, res, next) {
     const request = await Request.findByIdAndUpdate(requestId, {
       status: "rejected",
       reason,
+      actionTakerId: req.userId,
     });
     await createNotification(
+      "Material Request Rejected",
       request.requesterId,
-      `Your request has been rejected. \nID:${request._id}`,
+      `Material Request made by you has been rejected. \nID:${request._id}`,
     );
     res.json({ message: "rejected successfully" });
   } catch (error) {
@@ -112,12 +123,14 @@ async function changeStatusApproved(req, res, next) {
     const materialRequest = await Request.findByIdAndUpdate(requestId, {
       status: "approved",
       approvalDate: Date.now(),
+      actionTakerId: req.userId,
     });
-    const notificationPayload = {
-      for: materialRequest.requesterId,
-      description: `Material Request Approved. RequestId:${materialRequest._id}`,
-    };
-    await Notification.create(notificationPayload);
+    await createNotification(
+      "Material Request Approved",
+      materialRequest.requesterId,
+      `Material Request made by you has been approved. \nID:${materialRequest._id}`,
+    );
+
     res.json({ message: "approved successfully" });
   } catch (error) {
     next(error);
@@ -162,14 +175,22 @@ async function changeStatusSupplied(req, res, next) {
         ...materialRequest.toObject(),
         quantity: newQuantity,
         status: "approved",
+        requestDate: Date.now(),
       };
       delete newMaterialRequest._id;
       console.log({ newMaterialRequest });
       await Request.create(newMaterialRequest);
     }
+    materialRequest.actionTakerId = req.userId;
     await materialRequest.save();
     await requestedMaterial.save();
     // await Request.findByIdAndUpdate(requestId, { status: "supplied" });
+
+    await createNotification(
+      "Material Request Supplied",
+      materialRequest.requesterId,
+      `Material Request made by you has been supplied. \nID:${materialRequest._id}`,
+    );
 
     res.json({ message: "supplied successfully" });
   } catch (error) {
@@ -183,14 +204,24 @@ async function changeStatusRecieved(req, res, next) {
   try {
     if (!requestId) throw new Error("Missing Required field: requestId");
     if (!quality) throw new Error("Missing Required field: requestId");
+    let materialRequest;
     if (quality === "confirmed")
-      await Request.findByIdAndUpdate(requestId, {
+      materialRequest = await Request.findByIdAndUpdate(requestId, {
         status: "recieved - confirmed quality",
       });
     else
-      await Request.findByIdAndUpdate(requestId, {
+      materialRequest = await Request.findByIdAndUpdate(requestId, {
         status: "recieved - rejected quality",
+        actionTakerId: req.userId,
       });
+
+    await createNotification(
+      "Material Request Recieved",
+      materialRequest.actionTakerId,
+      `Material Request supplied by you has been recieved. \nID:${materialRequest._id}`,
+    );
+
+
     res.json({ message: "recieved successfully" });
   } catch (error) {
     next(error);

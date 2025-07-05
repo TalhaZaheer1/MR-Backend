@@ -48,6 +48,10 @@ const materialRequestSchema = new Schema({
     type: Date,
     required:true
   },
+  actionTakerId:{
+    type:Schema.Types.ObjectId,
+    ref:"Users"
+  },
   approvalDate: {
     type: Date,
   },

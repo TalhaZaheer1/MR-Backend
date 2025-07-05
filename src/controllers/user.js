@@ -3,12 +3,15 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const MaterialRequestModel = require("../models/materialRequest");
 const MaterialModel = require("../models/material");
-const RFQModel = require("../models/rfq");
+const QuotationRequestModel = require("../models/quotationRequests");
+const QuotationModel = require("../models/quotation");
+const { PurchaseOrderModel } = require("../models/purchaseOrder");
 const fs = require("fs-extra");
 const path = require("path");
 const json2csv = require("json2csv");
 const { exec } = require("child_process"); // For MongoDB dump command
 const { promisify } = require("util");
+const mongoose = require("mongoose");
 require("dotenv");
 
 const execPromise = promisify(exec);
@@ -250,6 +253,10 @@ async function getAdminStats() {
 }
 
 async function getDepartmentStats(userId) {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
   const requestStatusStats = {
     total: 0,
     pendingApproval: 0,
@@ -270,6 +277,15 @@ async function getDepartmentStats(userId) {
     department: 1,
   });
   const aggregation = await MaterialRequestModel.aggregate([
+    {
+      $match: {
+        requestDate: {
+          $gte: startOfMonth,
+          $lt: startOfNextMonth,
+        },
+      },
+    },
+
     {
       $lookup: {
         from: "Users",
@@ -306,10 +322,37 @@ async function getDepartmentStats(userId) {
 }
 
 async function getPurchasingStats(userId) {
-  const quotationStatsAggregation = await RFQModel.aggregate([
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  const quotationRequestStatsAggregation =
+    await QuotationRequestModel.aggregate([
+      {
+        $match: {
+          submittedBy: new mongoose.Types.ObjectId(userId),
+          date: {
+            $gte: startOfMonth,
+            $lt: startOfNextMonth,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+  const poStatsAggregation = await PurchaseOrderModel.aggregate([
     {
       $match: {
-        submittedBy: userId,
+        createdBy: new mongoose.Types.ObjectId(userId),
+        createdAt: {
+          $gte: startOfMonth,
+          $lt: startOfNextMonth,
+        },
       },
     },
     {
@@ -320,18 +363,147 @@ async function getPurchasingStats(userId) {
     },
   ]);
 
+  const quotaionStatsAggregation = await QuotationModel.aggregate([
+    {
+      $match: {
+        date: {
+          $gte: startOfMonth,
+          $lt: startOfNextMonth,
+        },
+      },
+    },
+
+    {
+      $lookup: {
+        from: "quotationrequests", // Lookup in the QuotationRequests collection
+        localField: "quotationRequestId", // Field in QuotationModel to match
+        foreignField: "_id", // Field in QuotationRequests to match
+        as: "quotationRequestDetails", // Store result in "quotationRequestDetails"
+      },
+    },
+    {
+      $unwind: {
+        path: "$quotationRequestDetails", // Unwind the array
+        preserveNullAndEmptyArrays: true, // Allow the match to proceed even if no match is found
+      },
+    },
+    {
+      $match: {
+        "quotationRequestDetails.submittedBy": new mongoose.Types.ObjectId(
+          userId,
+        ), // Match based on submittedBy
+      },
+    },
+    {
+      $group: {
+        _id: "$status", // Group by status field from QuotationModel
+        count: { $sum: 1 }, // Count the number of quotes per status
+      },
+    },
+  ]);
+
+  const quotationRequestStats = {};
+  const poStats = {};
   const quotationStats = {};
-  quotationStatsAggregation.forEach((item) => {
-    quotationStats[item._id] = item.count;
+
+  quotationRequestStatsAggregation.forEach((item) => {
+    quotationRequestStats[item._id] = item.count;
   });
+  poStatsAggregation.forEach((item) => (poStats[item._id] = item.count));
+  quotaionStatsAggregation.forEach(
+    (item) => (quotationStats[item._id] = item.count),
+  );
 
   return {
+    quotationRequestStats,
+    purchaseOrderStats: poStats,
     quotationStats,
   };
 }
 
 async function getStoreStats() {
-  return {};
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  // 1. Materials Inventory Stats
+  const materialsStatsAggregation = await MaterialModel.aggregate([
+    {
+      $project: {
+        maximoId: 1,
+        description: 1,
+        currentStock: 1,
+        lowStock: 1, // Return the low stock status
+      },
+    },
+  ]);
+
+  // Calculate total low stock materials and total items in stock
+  const materialsInventoryStats = {};
+  materialsStatsAggregation.forEach(
+    (item) =>
+    (materialsInventoryStats[`${item.maximoId} - ${item.description}`] =
+      item.currentStock),
+  );
+
+  // 2. Purchase Orders Stats
+  const purchaseOrderStatsAggregation = await PurchaseOrderModel.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: startOfMonth,
+          $lt: startOfNextMonth,
+        },
+      },
+    },
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const purchaseOrdersStats = {};
+  purchaseOrderStatsAggregation.forEach((item) => {
+    purchaseOrdersStats[item._id] = item.count;
+  });
+
+  // 3. Material Requests Stats
+  const materialRequestsStatsAggregation = await MaterialRequestModel.aggregate(
+    [
+      {
+        $match: {
+          requestDate: {
+            $gte: startOfMonth,
+            $lt: startOfNextMonth,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ],
+  );
+
+  const materialRequestsStats = {};
+  materialRequestsStatsAggregation.forEach((item) => {
+    materialRequestsStats[item._id] = item.count;
+  });
+
+
+   const lowStockMaterials = await MaterialModel.find({ lowStock: true });
+ 
+
+  return {
+    materialsInventoryStats,
+    purchaseOrdersStats,
+    materialRequestsStats,
+lowStockMaterials
+  };
 }
 
 async function getInvoicingStats() {
@@ -397,5 +569,5 @@ module.exports = {
   updateUser,
   getAllSuppliers,
   getDashboardStats,
-  adminBackup
+  adminBackup,
 };

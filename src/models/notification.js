@@ -1,6 +1,7 @@
 const { Schema, model, default: mongoose } = require("mongoose");
 
 const notificationSchema = new Schema({
+  heading:String,
   for: {
     type: Schema.Types.ObjectId,
     ref: "Users",

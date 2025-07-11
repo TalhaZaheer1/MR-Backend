@@ -6,6 +6,10 @@ const materialRequestSchema = new Schema({
     required: true,
     ref: "Materials",
   },
+  serial:{
+    type:String,
+    unique:true
+  },
   description: {
     type: String,
   },
@@ -54,6 +58,18 @@ const materialRequestSchema = new Schema({
   },
   approvalDate: {
     type: Date,
+  },
+  itemNumber:Number,
+  materialDescription:String,
+  priority: {
+    type: String,
+    enum: [
+      "Low",
+      "Medium",
+      "High",
+    ],
+    required: true,
+    default: "Low",
   },
   requesterId: {
     type: Schema.Types.ObjectId,

@@ -8,12 +8,14 @@ const {
   changeStatusRejected,
   getAllMaterialsRequests,
   getUserMaterialRequests,
-  repairMaterialRequest
+  repairMaterialRequest,
+  bulkCreateFromFile
 } = require("../controllers/materialRequest.js");
 
 router.get("/",protect,getAllMaterialsRequests);
 router.get("/mine",protect,getUserMaterialRequests);
-router.post("/bulk-add",bulkCreateMaterialRequests);
+router.post("/bulk-add",protectDepartment,bulkCreateMaterialRequests);
+router.post("/bulk-from-file",protectDepartment,bulkCreateFromFile)
 router.post("/approve-request",protectAdminAndPurchasing,changeStatusApproved);
 router.post("/reject-request",protectAdminAndPurchasing,changeStatusRejected);
 router.post("/recieve-request",protectDepartment,changeStatusRecieved);

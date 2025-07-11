@@ -79,14 +79,37 @@ async function bulkCreateMaterials(req, res, next) {
   }
 }
 
+
 async function getAllMaterials(req, res, next) {
   try {
-    const materials = await MaterialModel.find().sort({ description: 1 }); // optional: sort alphabetically
-    res.status(200).json({ materials });
+    const page = parseInt(req.query.page) || 1;  // Default to page 1 if no page is provided
+    const pageSize = parseInt(req.query.pageSize) || 10;  // Default to 10 items per page
+
+    const skip = (page - 1) * pageSize;  // Calculate the number of items to skip
+
+    // Fetch the materials with pagination
+    const materials = await MaterialModel.find()
+      .skip(skip)
+      .limit(pageSize)
+      .sort({ description: 1 });  // Sorting alphabetically by description
+
+    // Get the total count of materials for pagination info
+    const totalMaterials = await MaterialModel.countDocuments();
+
+    res.status(200).json({
+      materials,
+      pagination: {
+        page,
+        pageSize,
+        totalMaterials,
+        totalPages: Math.ceil(totalMaterials / pageSize), // Calculate total number of pages
+      },
+    });
   } catch (error) {
     next(error);
   }
 }
+
 
 async function updateMaterial(req, res, next) {
   try {

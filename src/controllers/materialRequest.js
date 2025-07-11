@@ -1,5 +1,7 @@
 const Material = require("../models/material");
 const Request = require("../models/materialRequest");
+const Department = require("../models/departments.js");
+const { UserModel } = require("../models/user.js");
 const Notification = require("../models/notification.js");
 const { createNotification } = require("../utils/notify.js");
 
@@ -25,6 +27,8 @@ const getUserMaterialRequests = async (req, res, next) => {
     next(error);
   }
 };
+
+
 
 async function repairMaterialRequest(req, res, next) {
   const { requestId, materialMaximoId, quantity, purpose } = req.body;
@@ -60,7 +64,7 @@ async function repairMaterialRequest(req, res, next) {
   }
 }
 
-const bulkCreateMaterialRequests = async (req, res, next) => {
+const bulkCreateFromFile = async (req, res, next) => {
   const requests = req.body.requests; // an array of request objects
 
   try {
@@ -89,6 +93,47 @@ const bulkCreateMaterialRequests = async (req, res, next) => {
 
     // Step 4: All valid — insert
     const insertedRequests = await Request.insertMany(requests);
+    res.status(201).json({ success: true, data: insertedRequests });
+  } catch (err) {
+    console.error("[❌ Bulk Insert Error]", err);
+    next(err);
+  }
+};
+
+
+
+const bulkCreateMaterialRequests = async (req, res, next) => {
+  const request = req.body.request; // an array of request objects
+  console.log(req.userId);
+  try {
+    const user = await UserModel.findById(req.userId)
+      .populate("department", "code latestIndex")
+      .select("department");
+    if (!user.department)
+      throw new Error("User department is not set in the system");
+    const departmentCode = user.department.code || "NOCODE";
+    let latestIndex = user.department.latestIndex || 0;
+    latestIndex++;
+    let itemNumber = 1;
+    const payloadRequests = request.items.map((item) => {
+      const newRequest = {
+        serial: `${departmentCode}${latestIndex.toString().padStart(3, "0")}`,
+        materialMaximoId: item.maximoId,
+        quantity: item.quantity,
+        priority:item.priority,
+        description: item.description,
+        workOrders: item.workOrders,
+        purpose: request.purpose,
+        requesterId: req.userId,
+        requestDate: request.requestDate,
+        itemNumber
+      };
+      itemNumber++
+      return newRequest;
+    });
+    await Department.findById(user.department._id, { latestIndex });
+    // Step 4: All valid — insert
+    const insertedRequests = await Request.insertMany(payloadRequests);
     res.status(201).json({ success: true, data: insertedRequests });
   } catch (err) {
     console.error("[❌ Bulk Insert Error]", err);
@@ -221,7 +266,6 @@ async function changeStatusRecieved(req, res, next) {
       `Material Request supplied by you has been recieved. \nID:${materialRequest._id}`,
     );
 
-
     res.json({ message: "recieved successfully" });
   } catch (error) {
     next(error);
@@ -237,4 +281,5 @@ module.exports = {
   getUserMaterialRequests,
   getAllMaterialsRequests,
   repairMaterialRequest,
+  bulkCreateFromFile
 };

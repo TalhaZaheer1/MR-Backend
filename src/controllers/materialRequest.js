@@ -104,6 +104,7 @@ const bulkCreateFromFile = async (req, res, next) => {
 
 const bulkCreateMaterialRequests = async (req, res, next) => {
   const request = req.body.request; // an array of request objects
+  console.log({requestItems:request.items})
   console.log(req.userId);
   try {
     const user = await UserModel.findById(req.userId)

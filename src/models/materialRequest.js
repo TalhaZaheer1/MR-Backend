@@ -64,9 +64,9 @@ const materialRequestSchema = new Schema({
   priority: {
     type: String,
     enum: [
-      "Low",
-      "Medium",
-      "High",
+      "low",
+      "medium",
+      "high",
     ],
     required: true,
     default: "Low",

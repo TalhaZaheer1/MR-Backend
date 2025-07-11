@@ -9,7 +9,7 @@ const getAllMaterialsRequests = async (req, res, next) => {
   try {
     const requests = await Request.find({})
       .populate("requesterId")
-      .sort({ requestDate: -1 });
+      .sort({  serial:-1,item:-1,requestDate: -1 ,});
     res.json({ requests });
   } catch (error) {
     next(error);
@@ -131,7 +131,7 @@ const bulkCreateMaterialRequests = async (req, res, next) => {
       itemNumber++
       return newRequest;
     });
-    await Department.findById(user.department._id, { latestIndex });
+    await Department.findByIdAndUpdate(user.department._id, { latestIndex });
     // Step 4: All valid — insert
     const insertedRequests = await Request.insertMany(payloadRequests);
     res.status(201).json({ success: true, data: insertedRequests });

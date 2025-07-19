@@ -89,6 +89,26 @@ async function register(req, res, next) {
   }
 }
 
+async function registerSupplier(req, res, next) {
+  const { username, email } = req.body;
+  try {
+    if (!username || !email) throw new Error("Field missing.");
+    console.log({ body: req.body });
+    const userWithUsername = await UserModel.findOne({ username });
+    if (userWithUsername)
+      throw new Error("User with this username already exists.");
+    const userWithEmail = await UserModel.findOne({ email });
+    if (userWithEmail) throw new Error("User with this email already exists.");
+    const newUser = await UserModel.create({
+      ...req.body,
+      role:"supplier"
+    });
+    return res.json({ user: newUser });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function registerBulk(req, res, next) {
   const users = req.body;
 
@@ -494,15 +514,13 @@ async function getStoreStats() {
     materialRequestsStats[item._id] = item.count;
   });
 
-
-   const lowStockMaterials = await MaterialModel.find({ lowStock: true });
- 
+  const lowStockMaterials = await MaterialModel.find({ lowStock: true });
 
   return {
     materialsInventoryStats,
     purchaseOrdersStats,
     materialRequestsStats,
-lowStockMaterials
+    lowStockMaterials,
   };
 }
 
@@ -570,4 +588,5 @@ module.exports = {
   getAllSuppliers,
   getDashboardStats,
   adminBackup,
+  registerSupplier,
 };

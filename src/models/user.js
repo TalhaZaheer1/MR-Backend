@@ -20,11 +20,14 @@ const userSchema = new Schema({
   },
   password: {
     type: String,
-    required: true,
   },
   department: {
     type: Schema.Types.ObjectId,
     ref: "Departments", 
+  },
+  isUser:{
+    type:Boolean,
+    default:false
   }
 });
 

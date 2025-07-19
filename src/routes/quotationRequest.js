@@ -10,16 +10,23 @@ const {
   createQuotationRequest,
   getPurchasingQuotationRequests,
   getSupplierQuotationRequests,
-  getQuotationRequestDetails,
+  // getQuotationRequestDetails,
   getAllQuotationRequests,
   closeQuotationRequest,
+  addPrice,
+  approveQuotationRequestAndCreateDraftPo,
+  getQuotationRequestsByMatRequest,
+  bulkCreateQuotation,
 } = require("../controllers/quotationRequest");
 
 router.post("/", protectPurchasing, createQuotationRequest);
-// router.post("/bulk",protectPurchasing,bulkCreateQuotation)
+router.post("/add-price",protectSupplierAndPurchasing,addPrice)
+router.post("/approve-generate-po",protectPurchasing,approveQuotationRequestAndCreateDraftPo);
+router.post("/by-mat-id",protectPurchasing,getQuotationRequestsByMatRequest);
+router.post("/bulk",protectPurchasing,bulkCreateQuotation)
 router.get("/purchasing", protectPurchasing, getPurchasingQuotationRequests);
 router.get("/supplier", protectSupplier, getSupplierQuotationRequests);
-router.get("/details/:id", protectSupplierAndPurchasing, getQuotationRequestDetails);
+// router.get("/details/:id", protectSupplierAndPurchasing, getQuotationRequestDetails);
 router.get("/all", protectAdmin, getAllQuotationRequests);
 router.get("/close/:id", protectPurchasing, closeQuotationRequest);
 

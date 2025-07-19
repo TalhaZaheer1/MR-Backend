@@ -25,10 +25,17 @@ const materialRequestSchema = new Schema({
     enum: [
       "pending approval",
       "approved",
+      "partially approved",
       "rejected",
       "partially supplied",
-      "supplied",
-      "delivered",
+      "pending rfq generation",
+      "rfq generated",
+      "PO generated",
+      "reserved",
+      "partially reserved",
+      "dispatched",
+      "dispatch rejected",
+      "delivery confirmed",
       "delivery rejected",
       "repair",
       "partially delivered",
@@ -70,6 +77,14 @@ const materialRequestSchema = new Schema({
     ],
     required: true,
     default: "Low",
+  },
+  quotationRequestsIds:{
+    type: Schema.Types.ObjectId,
+    ref:"QuotationRequests",
+  },
+  purchaseOrderId:{
+    type: Schema.Types.ObjectId,
+    ref:"PurchaseOrders"
   },
   requesterId: {
     type: Schema.Types.ObjectId,

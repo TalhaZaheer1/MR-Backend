@@ -1,20 +1,6 @@
 const { Schema, model, default: mongoose } = require("mongoose");
 
 
-const partiallyDeliveredItemsSchema = new mongoose.Schema(
-  {
-    maximoId: {
-      type: String,
-      ref: "Materials",
-      required: true,
-    },
-    quantity: { type: Number, required: true },
-    pricePerUnit:Number,
-    totalAmount:Number
-  },
-  { _id: false },
-);
-
 
 const purchaseOrderSchema = new Schema({
   supplierId: {
@@ -22,9 +8,9 @@ const purchaseOrderSchema = new Schema({
     ref: 'Users',
     required: true,
   },
-  quotationId: {
+  quotationRequestId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Quotations', 
+    ref: 'QuotationRequests', 
   },
  paymentTerms: {
     type: String,
@@ -35,10 +21,10 @@ const purchaseOrderSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ['pending','recieved','not recieved','dispatched', 'dispatcing rejected', 'partially dispatched'],
-    default: 'pending',
+    enum: ["draft",'pending','dispatched','rejected',"delivery confirmed","delivery rejected"],
+    default: 'draft',
   },
-  partiallyDeliveredItems:[partiallyDeliveredItemsSchema],
+  // partiallyDeliveredItems:[partiallyDeliveredItemsSchema],
   rejectReason:String,
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -59,7 +45,6 @@ const purchaseOrderSchema = new Schema({
     type:Date,
     default:null
   },
-  totalAmount:Number
 });
 
 const PurchaseOrderModel = model('PurchaseOrders', purchaseOrderSchema);

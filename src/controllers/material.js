@@ -1,5 +1,26 @@
 const MaterialModel = require("../models/material");
 
+
+
+
+const getMaterialByMaximoId = async (req, res, next) => {
+  const { maximoId } = req.params;
+
+  try {
+    const material = await MaterialModel.findOne({ maximoId });
+
+    if (!material) {
+      return res.status(404).json({ message: "Material not found" });
+    }
+
+    res.json({ material });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getMaterialByMaximoId };
+
 async function createMaterial(req, res, next) {
   try {
     const { maximoId, description, itemType, unit, initialStock } = req.body;
@@ -140,5 +161,6 @@ module.exports = {
   createMaterial,
   getAllMaterials,
   updateMaterial,
-  bulkCreateMaterials
+  bulkCreateMaterials,
+  getMaterialByMaximoId
 };

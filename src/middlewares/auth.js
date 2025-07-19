@@ -119,6 +119,29 @@ async function protectStore(req, res, next) {
   }
 }
 
+async function protectStoreAndPurchasing(req, res, next) {
+  const tokWithbearer = req.headers["authorization"];
+  const token = tokWithbearer.split("Bearer ")[1];
+  if (!token)
+    return res.status(404).json({ message: "User not authenticated" });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await UserModel.findById(decoded.userId);
+    console.log(user.role);
+    if (
+      !user ||
+      (user.role !== "admin" &&
+        user.role !== "purchasing" &&
+        user.role !== "store")
+    )
+      return res.status(404).json({ message: "User not authorized." });
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function protectSupplierAndPurchasing(req, res, next) {
   const tokWithbearer = req.headers["authorization"];
   const token = tokWithbearer.split("Bearer ")[1];
@@ -186,5 +209,6 @@ module.exports = {
   protectPurchasing,
   protectAdminAndPurchasing,
   protectSupplierAndPurchasing,
-  protectStoreAndInvoicing
+  protectStoreAndInvoicing,
+protectStoreAndPurchasing
 };
